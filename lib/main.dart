@@ -14,10 +14,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:pytorch_mobile/enums/dtype.dart';
-import 'package:pytorch_mobile/model.dart';
-import 'package:pytorch_mobile/pytorch_mobile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tflite_flutter/tflite_flutter.dart';
 
 void main() {
   runApp(const KazeRunnerApp());
@@ -1805,6 +1803,109 @@ class FoodScreen extends StatefulWidget {
 class _FoodScreenState extends State<FoodScreen> {
   static final RegExp _decimalRegex = RegExp(r'^\d*([.]\d*)?$');
   static const int _maxWaterMlPerDay = 6000;
+  static const List<String> _food101Classes = <String>[
+    'apple_pie',
+    'baby_back_ribs',
+    'baklava',
+    'beef_carpaccio',
+    'beef_tartare',
+    'beet_salad',
+    'beignets',
+    'bibimbap',
+    'bread_pudding',
+    'breakfast_burrito',
+    'bruschetta',
+    'caesar_salad',
+    'cannoli',
+    'caprese_salad',
+    'carrot_cake',
+    'ceviche',
+    'cheesecake',
+    'cheese_plate',
+    'chicken_curry',
+    'chicken_quesadilla',
+    'chicken_wings',
+    'chocolate_cake',
+    'chocolate_mousse',
+    'churros',
+    'clam_chowder',
+    'club_sandwich',
+    'crab_cakes',
+    'creme_brulee',
+    'croque_madame',
+    'cup_cakes',
+    'deviled_eggs',
+    'donuts',
+    'dumplings',
+    'edamame',
+    'eggs_benedict',
+    'escargots',
+    'falafel',
+    'filet_mignon',
+    'fish_and_chips',
+    'foie_gras',
+    'french_fries',
+    'french_onion_soup',
+    'french_toast',
+    'fried_calamari',
+    'fried_rice',
+    'frozen_yogurt',
+    'garlic_bread',
+    'gnocchi',
+    'greek_salad',
+    'grilled_cheese_sandwich',
+    'grilled_salmon',
+    'guacamole',
+    'gyoza',
+    'hamburger',
+    'hot_and_sour_soup',
+    'hot_dog',
+    'huevos_rancheros',
+    'hummus',
+    'ice_cream',
+    'lasagna',
+    'lobster_bisque',
+    'lobster_roll_sandwich',
+    'macaroni_and_cheese',
+    'macarons',
+    'miso_soup',
+    'mussels',
+    'nachos',
+    'omelette',
+    'onion_rings',
+    'oysters',
+    'pad_thai',
+    'paella',
+    'pancakes',
+    'panna_cotta',
+    'peking_duck',
+    'pho',
+    'pizza',
+    'pork_chop',
+    'poutine',
+    'prime_rib',
+    'pulled_pork_sandwich',
+    'ramen',
+    'ravioli',
+    'red_velvet_cake',
+    'risotto',
+    'samosa',
+    'sashimi',
+    'scallops',
+    'seaweed_salad',
+    'shrimp_and_grits',
+    'spaghetti_bolognese',
+    'spaghetti_carbonara',
+    'spring_rolls',
+    'steak',
+    'strawberry_shortcake',
+    'sushi',
+    'tacos',
+    'takoyaki',
+    'tiramisu',
+    'tuna_tartare',
+    'waffles',
+  ];
   static const Map<String, (double kcal, double protein, double fat, double carbs)> _presetMeals =
       <String, (double, double, double, double)>{
         'Куриная грудка с рисом': (520, 42, 8, 68),
@@ -1814,8 +1915,8 @@ class _FoodScreenState extends State<FoodScreen> {
         'Лосось с картофелем': (610, 38, 28, 46),
       };
   final ImagePicker _imagePicker = ImagePicker();
-  Model? _foodModel;
-  Model? _nutritionModel;
+  Interpreter? _foodModel;
+  Interpreter? _nutritionModel;
   bool _modelsLoading = true;
   bool _inferenceLoading = false;
   String? _visionError;
@@ -1829,6 +1930,13 @@ class _FoodScreenState extends State<FoodScreen> {
     _loadVisionModels();
   }
 
+  @override
+  void dispose() {
+    _foodModel?.close();
+    _nutritionModel?.close();
+    super.dispose();
+  }
+
   Future<void> _loadVisionModels() async {
     if (!_visionSupported) {
       setState(() {
@@ -1838,11 +1946,11 @@ class _FoodScreenState extends State<FoodScreen> {
       return;
     }
     try {
-      final Model foodModel = await PyTorchMobile.loadModel(
-        'assets/models/food_model.pt',
+      final Interpreter foodModel = await Interpreter.fromAsset(
+        'assets/models/food_model.tflite',
       );
-      final Model nutritionModel = await PyTorchMobile.loadModel(
-        'assets/models/nutrition_model.pt',
+      final Interpreter nutritionModel = await Interpreter.fromAsset(
+        'assets/models/nutrition_model.tflite',
       );
       if (!mounted) return;
       setState(() {
@@ -1866,7 +1974,7 @@ class _FoodScreenState extends State<FoodScreen> {
       throw Exception('Невозможно декодировать изображение');
     }
     final img.Image resized = img.copyResize(decoded, width: 224, height: 224);
-    final List<double> input = <double>[];
+    final List<double> chw = List<double>.filled(3 * 224 * 224, 0);
     for (int y = 0; y < 224; y++) {
       for (int x = 0; x < 224; x++) {
         final img.Pixel pixel = resized.getPixel(x, y);
@@ -1876,15 +1984,33 @@ class _FoodScreenState extends State<FoodScreen> {
         r = (r - 0.485) / 0.229;
         g = (g - 0.456) / 0.224;
         b = (b - 0.406) / 0.225;
-        input.addAll(<double>[r, g, b]);
+        final int idx = y * 224 + x;
+        chw[idx] = r;
+        chw[224 * 224 + idx] = g;
+        chw[2 * 224 * 224 + idx] = b;
       }
     }
-    return input;
+    return chw;
   }
 
-  List<double> _asDoubleList(dynamic value) {
+  dynamic _newTensorBuffer(List<int> shape) {
+    if (shape.isEmpty) return 0.0;
+    final int size = shape.first;
+    if (shape.length == 1) {
+      return List<double>.filled(size, 0);
+    }
+    return List<dynamic>.generate(
+      size,
+      (_) => _newTensorBuffer(shape.sublist(1)),
+    );
+  }
+
+  List<double> _flattenToDoubleList(dynamic value) {
     if (value is List) {
-      return value.whereType<num>().map((num item) => item.toDouble()).toList();
+      return value.expand((dynamic item) => _flattenToDoubleList(item)).toList();
+    }
+    if (value is num) {
+      return <double>[value.toDouble()];
     }
     return <double>[];
   }
@@ -1901,6 +2027,30 @@ class _FoodScreenState extends State<FoodScreen> {
     return expVals[index] / sum;
   }
 
+  Future<ImageSource?> _pickImageSource() async {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Сфотографировать'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Выбрать из галереи'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _captureAndInfer() async {
     if (!_visionSupported) {
       _showMessage('Камера и ML доступны только на Android/iOS');
@@ -1914,12 +2064,14 @@ class _FoodScreenState extends State<FoodScreen> {
       _showMessage('Модели недоступны');
       return;
     }
+    final ImageSource? source = await _pickImageSource();
+    if (!mounted || source == null) return;
     final XFile? captured = await _imagePicker.pickImage(
-      source: ImageSource.camera,
+      source: source,
       imageQuality: 90,
       maxWidth: 1600,
     );
-    if (captured == null) return;
+    if (!mounted || captured == null) return;
     setState(() {
       _inferenceLoading = true;
       _visionError = null;
@@ -1927,12 +2079,26 @@ class _FoodScreenState extends State<FoodScreen> {
     });
     try {
       final List<double> input = _preprocessImage(File(captured.path));
-      final List<double> foodRaw = _asDoubleList(
-        await _foodModel!.getPrediction(input, <int>[1, 224, 224, 3], DType.float32),
+      final List<List<List<List<double>>>> modelInput = [
+        List<List<List<double>>>.generate(
+          3,
+          (int c) => List<List<double>>.generate(
+            224,
+            (int y) => List<double>.generate(
+              224,
+              (int x) => input[c * 224 * 224 + y * 224 + x],
+            ),
+          ),
+        ),
+      ];
+      final dynamic foodOutput = _newTensorBuffer(_foodModel!.getOutputTensor(0).shape);
+      final dynamic nutritionOutput = _newTensorBuffer(
+        _nutritionModel!.getOutputTensor(0).shape,
       );
-      final List<double> nutritionRaw = _asDoubleList(
-        await _nutritionModel!.getPrediction(input, <int>[1, 224, 224, 3], DType.float32),
-      );
+      _foodModel!.run(modelInput, foodOutput);
+      _nutritionModel!.run(modelInput, nutritionOutput);
+      final List<double> foodRaw = _flattenToDoubleList(foodOutput);
+      final List<double> nutritionRaw = _flattenToDoubleList(nutritionOutput);
       int bestClassIdx = 0;
       if (foodRaw.isNotEmpty) {
         for (int i = 1; i < foodRaw.length; i++) {
@@ -1942,7 +2108,9 @@ class _FoodScreenState extends State<FoodScreen> {
         }
       }
       final _FoodVisionResult result = _FoodVisionResult(
-        foodLabel: 'Класс #${bestClassIdx + 1}',
+        foodLabel: bestClassIdx >= 0 && bestClassIdx < _food101Classes.length
+            ? _food101Classes[bestClassIdx]
+            : 'Класс #${bestClassIdx + 1}',
         confidence: _softmaxConfidence(foodRaw, bestClassIdx),
         calories: nutritionRaw.isNotEmpty ? max(0, nutritionRaw[0]) : 0,
         protein: nutritionRaw.length > 1 ? max(0, nutritionRaw[1]) : 0,
@@ -2265,7 +2433,11 @@ class _FoodScreenState extends State<FoodScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    });
   }
 
   @override

@@ -1,17 +1,107 @@
-# kazer
+# Kaze Runner
 
-A new Flutter project.
+## Описание приложения
 
-## Getting Started
+Kaze Runner — это Flutter-приложение для отслеживания спортивной активности, питания, профиля пользователя и пробежек. В проекте реализован простой интерфейс на Material 3, локальное хранение данных и запись маршрутов бега с использованием GPS.
 
-This project is a starting point for a Flutter application.
+## Архитектура приложения
 
-A few resources to get you started if this is your first Flutter project:
+Приложение построено как единый Flutter-проект с основным кодом в файле `lib/main.dart`.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Основные элементы архитектуры:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- `KazeRunnerApp` — корневой `StatelessWidget`, который инициализирует `MaterialApp`.
+- `RootPage` — состояние приложения загружает сохранённые данные и выбирает, показывать экран создания профиля или главную вкладку.
+- `MainTabsScreen` — основной экран с четырьмя вкладками:
+  - Активность
+  - Еда
+  - Бег
+  - Профиль
+- Данные пользователя и истории хранятся в модели `AppData` и сохраняются локально через `SharedPreferences`.
+- Логика приложения реализована в виджетах `StatefulWidget`, которые управляют формами, списками, планами тренировок и историей.
+
+## Основные технологии
+
+Приложение использует следующие пакеты и технологии:
+
+- `flutter` — пользовательский интерфейс и база проекта.
+- `shared_preferences` — локальное хранение данных (`AppData`) в виде JSON.
+- `geolocator` — получение геопозиции и запись маршрута бега.
+- `permission_handler` — управление правами доступа к камере, галерее и геолокации.
+- `image_picker` — выбор фото из галереи и использование камеры.
+- `flutter_map` + `latlong2` — отображение карт и координат пробежки.
+- `path_provider` — доступ к файловой системе устройства.
+- `tflite_flutter` — поддержка TensorFlow Lite для работы с моделями машинного обучения.
+- `image` — обработка изображений.
+
+## Как реализован GPS
+
+GPS реализован в экране бега: `RunScreen`.
+
+Процесс работы GPS:
+
+1. При старте пробежки выполняется проверка службы геолокации:
+   - `Geolocator.isLocationServiceEnabled()`.
+2. Запрашивается разрешение на использование геолокации:
+   - `Geolocator.checkPermission()`.
+   - Если разрешение не выдано, вызывается `Geolocator.requestPermission()`.
+3. Если доступ запрещён или заблокирован навсегда, приложение показывает сообщение и не начинает запись.
+4. При успешном получении разрешения запускается подписка на поток координат:
+   - `Geolocator.getPositionStream(...)`
+   - Параметры: `LocationAccuracy.best`, `distanceFilter: 5`.
+5. Новые точки маршрута сохраняются в список `RoutePoint`.
+6. Расстояние считывается как сумма отрезков между последовательными точками с помощью `Geolocator.distanceBetween(...)`.
+7. Время пробежки отслеживается с помощью `Timer.periodic(...)`.
+
+Эта реализация позволяет записывать треки пробежек в реальном времени и строить маршрут по GPS-координатам.
+
+## Управление данными
+
+В приложении есть несколько доменных моделей:
+
+- `UserProfile` — данные профиля пользователя: имя, рост, вес, возраст, цель, пол, количество тренировок.
+- `RunEntry` — запись пробежки с временем начала, длительностью, дистанцией и маршрутом.
+- `FoodEntry` — запись питания с калориями и макроэлементами.
+- `PlannedWorkout` и `CompletedWorkout` — запланированные и завершённые тренировки.
+
+Данные сериализуются в JSON и сохраняются в `SharedPreferences` под ключом `local_user_profile`.
+
+## Права доступа приложения
+
+### Android
+
+В `android/app/src/main/AndroidManifest.xml` указаны разрешения:
+
+- `ACCESS_COARSE_LOCATION`
+- `ACCESS_FINE_LOCATION`
+
+Это необходимо для записи маршрутов пробежек.
+
+### iOS
+
+В `ios/Runner/Info.plist` добавлены описания прав:
+
+- `NSLocationWhenInUseUsageDescription` — объяснение запроса геолокации.
+- `NSCameraUsageDescription` — объяснение запроса камеры для фото профиля.
+- `NSPhotoLibraryUsageDescription` — объяснение доступа к галерее.
+
+### Прочие разрешения
+
+Приложение также использует `permission_handler` для проверки и запроса прав на мобильных платформах. Это позволяет безопасно запрашивать доступ и корректно реагировать, если пользователь отказал.
+
+## Что важно знать
+
+- Все данные хранятся локально на устройстве.
+- Для пробежки обязательно разрешение на геолокацию и включённая служба GPS.
+- Камера и галерея используются только для загрузки аватарки пользователя.
+- Модели TensorFlow Lite находятся в папке `assets/models/`.
+
+## Быстрый старт
+
+1. Установите Flutter.
+2. Выполните `flutter pub get`.
+3. Запустите приложение на устройстве или эмуляторе: `flutter run`.
+
+---
+
+Если нужно, могу дополнить README схемой навигации, списком экранов или описанием алгоритма расчёта калорий.}

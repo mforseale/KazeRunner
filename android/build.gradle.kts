@@ -19,21 +19,6 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-subprojects {
-    if (name == "pytorch_mobile") {
-        plugins.withId("com.android.library") {
-            val androidExt = extensions.findByName("android")
-            if (androidExt != null) {
-                val setNamespace =
-                    androidExt.javaClass.methods.firstOrNull {
-                        it.name == "setNamespace" && it.parameterCount == 1
-                    }
-                setNamespace?.invoke(androidExt, "com.example.pytorch_mobile")
-            }
-        }
-    }
-}
-
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

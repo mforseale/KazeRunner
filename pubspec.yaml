@@ -42,7 +42,7 @@ dependencies:
   permission_handler: ^12.0.1
   flutter_map: ^8.2.2
   latlong2: ^0.9.1
-  pytorch_mobile: ^0.2.2
+  tflite_flutter: ^0.11.0
 
 dev_dependencies:
   flutter_test:

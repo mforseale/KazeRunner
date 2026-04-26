@@ -5,10 +5,6 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-configurations.all {
-    exclude(group = "com.android.support")
-}
-
 android {
     namespace = "com.example.kazer"
     compileSdk = flutter.compileSdkVersion
