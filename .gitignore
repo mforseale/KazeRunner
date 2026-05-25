@@ -1,6 +1,50 @@
-﻿/build/
+﻿# Flutter
 .dart_tool/
-.idea/
-*.iml
+build/
+.pub/
+pubspec.lock
+*.lock
 .flutter-plugins-dependencies
+
+# IDE
+.idea/
+.vscode/
+*.iml
 .DS_Store
+
+# Android (СЕКРЕТЫ!)
+android/local.properties
+android/app/google-services.json
+android/.gradle/
+android/.kotlin/
+
+# iOS (СЕКРЕТЫ!)
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Runner/GoogleService-Info.plist
+
+# Secrets (API ключи)
+.env
+*.pem
+*.key
+firebase_service_account.json
+
+# Worker
+workers/*/.env
+workers/*/node_modules/
+workers/*/.wrangler/
+
+# Logs
+*.log
+*.txt
+
+# Windows
+windows/flutter/ephemeral/
+windows/runner/Debug/
+windows/x64/
+
+# Mac/Linux
+macos/Flutter/ephemeral/
+linux/flutter/ephemeral/

@@ -1,0 +1,7 @@
+name = "kaze-assistant"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+FIREBASE_PROJECT_ID = "kazerunner"
+POLZA_MODEL = "google/gemini-2.0-flash-lite-001"

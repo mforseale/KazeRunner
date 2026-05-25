@@ -43,6 +43,13 @@ dependencies:
   flutter_map: ^8.2.2
   latlong2: ^0.9.1
   tflite_flutter: ^0.11.0
+  firebase_core: ^4.9.0
+  firebase_auth: ^6.5.1
+  cloud_firestore: ^6.4.1
+  google_sign_in: ^7.2.0
+  share_plus: ^12.0.2
+  flutter_localizations:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +74,12 @@ flutter:
   uses-material-design: true
   assets:
     - assets/models/
+    - assets/images/
+
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-VariableFont_wght.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:
